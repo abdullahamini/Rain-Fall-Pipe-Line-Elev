@@ -156,19 +156,13 @@ return (
      <Handle
         type="source"
         position="left"
-        style={{
-            left: rel.x1 - 5,
-            top: rel.y1 - 5,
-        }}
+        style={{ left: rel.x1, top: rel.y1 }}
      />
   
       <Handle
         type="target"
         position="right"
-        style={{
-          left: rel.x2 - 6,
-          top: rel.y2 - 6,
-        }}
+        style={{ left: rel.x2, top: rel.y2 }}
       />
     </div>
   );

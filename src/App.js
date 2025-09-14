@@ -12,7 +12,7 @@ import "reactflow/dist/style.css";
 import Toolbar from "./Toolbar";
 import PipeNode from "./PipeNode";
 import CircleNode from "./CircleNode";
-import IgnoreResizeErrorBoundary from "./IgnoreResizeErrorBoundary";
+//import IgnoreResizeErrorBoundary from "./IgnoreResizeErrorBoundary";
 
 const nodeTypes = {
   circleNode: CircleNode,
@@ -55,7 +55,7 @@ export default function App() {
   }, []);
 
   return (
-    <IgnoreResizeErrorBoundary>
+    //<IgnoreResizeErrorBoundary>
       <div style={{ display: "flex", height: "100vh" }}>
         <Toolbar />
         <div style={{ flex: 1, background: "#111" }}>
@@ -76,6 +76,6 @@ export default function App() {
           </ReactFlow>
         </div>
       </div>
-    </IgnoreResizeErrorBoundary>
+    //</IgnoreResizeErrorBoundary>
   );
 }
