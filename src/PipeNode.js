@@ -1,110 +1,175 @@
-import React, { useEffect, useRef } from "react";
-import { Handle, Position, useReactFlow, useUpdateNodeInternals } from "reactflow";
+import React, { useEffect, useRef, useMemo } from "react";
+import { Handle, useReactFlow, useUpdateNodeInternals } from "reactflow";
 
-export default function PipeNode({ id, data }) {
-    const width = typeof data?.width === "number" ? data.width : 120;
+const PAD = 12;
 
-    const { setNodes } = useReactFlow();
-    const updateNodeInternals = useUpdateNodeInternals();
+export default function PipeNode({ id, data, selected  }) {
+  const pts = data?.points || { x1: 20, y1: 20, x2: 160, y2: 20 };
 
-    const draggingRef = useRef(null);
-    const startXRef = useRef(0);
-    const startWRef = useRef(width);
-    const rafRef = useRef(null);
+  const { setNodes } = useReactFlow();
+  const updateNodeInternals = useUpdateNodeInternals();
 
-    useEffect(() => {
-        const onMouseMove = (e) => {
-            if (!draggingRef.current) return;
+  // محاسبه‌ی کادر اطراف خط
+  const bbox = useMemo(() => {
+    const minX = Math.min(pts.x1, pts.x2);
+    const minY = Math.min(pts.y1, pts.y2);
+    const maxX = Math.max(pts.x1, pts.x2);
+    const maxY = Math.max(pts.y1, pts.y2);
+    return {
+      minX,
+      minY,
+      maxX,
+      maxY,
+      w: Math.max(1, maxX - minX),
+      h: Math.max(1, maxY - minY),
+    };
+  }, [pts]);
 
-            const dx = e.clientX - startXRef.current;
-            let next = startWRef.current + (draggingRef.current === "right" ? dx : -dx);
-            if (next < 50) next = 50;
+  // نقاط نسبی در کادر
+  const rel = useMemo(
+    () => ({
+      x1: PAD + (pts.x1 - bbox.minX),
+      y1: PAD + (pts.y1 - bbox.minY),
+      x2: PAD + (pts.x2 - bbox.minX),
+      y2: PAD + (pts.y2 - bbox.minY),
+      width: bbox.w + PAD * 2,
+      height: bbox.h + PAD * 2,
+    }),
+    [pts, bbox]
+  );
 
-            if (rafRef.current) cancelAnimationFrame(rafRef.current);
-            rafRef.current = requestAnimationFrame(() => {
-                setNodes((nds) =>
-                    nds.map((n) =>
-                        n.id === id ? { ...n, data: { ...n.data, width: next } } : n
-                    )
-                );
-            });
-        };
+  const draggingRef = useRef(null);
+  const startMouseRef = useRef({ x: 0, y: 0 });
+  const startPtsRef = useRef(pts);
+  const rafRef = useRef(null);
 
-        const onMouseUp = () => {
-            draggingRef.current = null;
-            if (rafRef.current) {
-                cancelAnimationFrame(rafRef.current);
-                rafRef.current = null;
-            }
-            // ✅ فقط اینجا اطلاع بده که ابعاد عوض شد
-            updateNodeInternals(id);
-        };
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!draggingRef.current) return;
 
-        document.addEventListener("mousemove", onMouseMove);
-        document.addEventListener("mouseup", onMouseUp);
-        return () => {
-            document.removeEventListener("mousemove", onMouseMove);
-            document.removeEventListener("mouseup", onMouseUp);
-            if (rafRef.current) cancelAnimationFrame(rafRef.current);
-        };
-    }, [id, setNodes, updateNodeInternals]);
+      const dx = e.clientX - startMouseRef.current.x;
+      const dy = e.clientY - startMouseRef.current.y;
+      const base = startPtsRef.current;
 
-    const startDrag = (side) => (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        draggingRef.current = side;
-        startXRef.current = e.clientX;
-        startWRef.current = width;
+      let next = { ...base };
+      if (draggingRef.current === "p1") {
+        next.x1 = base.x1 + dx;
+        next.y1 = base.y1 + dy;
+      } else {
+        next.x2 = base.x2 + dx;
+        next.y2 = base.y2 + dy;
+      }
+
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => {
+        setNodes((nds) =>
+          nds.map((n) =>
+            n.id === id ? { ...n, data: { ...n.data, points: next } } : n
+          )
+        );
+      });
     };
 
-    return (
-        <div
+    const onUp = () => {
+      draggingRef.current = null;
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      updateNodeInternals(id);
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [id, setNodes, updateNodeInternals]);
+
+  const startDrag = (which) => (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    draggingRef.current = which;
+    startMouseRef.current = { x: e.clientX, y: e.clientY };
+    startPtsRef.current = pts;
+  };
+
+return (
+    <div
+      style={{
+        position: "relative",
+        width: rel.width,
+        height: rel.height,
+        cursor: "move",
+        userSelect: "none",
+      }}
+    >
+      {/* خط */}
+      <svg width={rel.width} height={rel.height}>
+        <line
+          x1={rel.x1}
+          y1={rel.y1}
+          x2={rel.x2}
+          y2={rel.y2}
+          stroke="cyan"
+          strokeWidth={6}
+        />
+      </svg>
+
+      {/* ✅ مربع‌ها فقط وقتی انتخاب شده */}
+      {selected && (
+        <>
+          <div
+            className="nodrag"
+            onMouseDown={startDrag("p1")}
             style={{
-                position: "relative",
-                width,
-                height: 20,
-                background: "cyan",
-                border: "2px solid black",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "move",
-                willChange: "width",
+              position: "absolute",
+              left: rel.x1 - 6,
+              top: rel.y1 - 6,
+              width: 12,
+              height: 12,
+              background: "red",
+              cursor: "move",
+              zIndex: 20,
             }}
-        >
-            {data?.label || "Pipe"}
+          />
+          <div
+            className="nodrag"
+            onMouseDown={startDrag("p2")}
+            style={{
+              position: "absolute",
+              left: rel.x2 - 6,
+              top: rel.y2 - 6,
+              width: 12,
+              height: 12,
+              background: "red",
+              cursor: "move",
+              zIndex: 20,
+            }}
+          />
+        </>
+      )}
 
-            <div
-                className="nodrag"
-                onMouseDown={startDrag("left")}
-                style={{
-                    position: "absolute",
-                    left: -8,
-                    top: -8,
-                    width: 15,
-                    height: 15,
-                    background: "red",
-                    cursor: "ew-resize",
-                    zIndex: 20,
-                }}
-            />
-            <div
-                className="nodrag"
-                onMouseDown={startDrag("right")}
-                style={{
-                    position: "absolute",
-                    right: -8,
-                    top: -8,
-                    width: 15,
-                    height: 15,
-                    background: "red",
-                    cursor: "ew-resize",
-                    zIndex: 20,
-                }}
-            />
-
-            <Handle type="source" position={Position.Right} />
-            <Handle type="target" position={Position.Left} />
-        </div>
-    );
+      {/* ✅ Handleها همیشه باقی می‌مونن */}
+     <Handle
+        type="source"
+        position="left"
+        style={{
+            left: rel.x1 - 5,
+            top: rel.y1 - 5,
+        }}
+     />
+  
+      <Handle
+        type="target"
+        position="right"
+        style={{
+          left: rel.x2 - 6,
+          top: rel.y2 - 6,
+        }}
+      />
+    </div>
+  );
 }

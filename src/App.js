@@ -33,18 +33,17 @@ export default function App() {
       const type = event.dataTransfer.getData("application/reactflow");
       if (!type) return;
 
-      const position = { x: event.clientX - 200, y: event.clientY };
+      //const position = { x: event.clientX - 200, y: event.clientY };
       const newNode = {
-        id: String(Date.now()),
-        type,
-        position,
-        data: {
-          label: type === "pipeNode" ? "Pipe" : "Circle",
-          width: type === "pipeNode" ? 120 : undefined, // ⬅️ عرض اولیه
-        },
-        // اجازه بده RF خودش اندازه را مدیریت کند
-        style: { width: "auto", height: "auto" },
-      };
+          id: String(Date.now()),
+          type,
+          position: { x: event.clientX - 200, y: event.clientY },
+          data: type === "pipeNode"
+            ? { label: "Pipe", points: { x1: 20, y1: 20, x2: 160, y2: 20 } } // شروع افقی؛ بعداً مورب کن
+            : { label: "Circle" },
+          style: { width: "auto", height: "auto" },
+        };
+
       setNodes((nds) => nds.concat(newNode));
     },
     [setNodes]
